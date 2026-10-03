@@ -15,11 +15,11 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import com.ehp.backend.ai.dto.EmergencyGuidanceResponse;
 import com.ehp.backend.ai.service.EmergencyGuidanceService;
 import com.ehp.backend.emergency.entity.EmergencyAccessLog;
 import com.ehp.backend.emergency.repository.EmergencyAccessLogRepository;
 import org.springframework.web.server.ResponseStatusException;
+import org.springframework.beans.factory.annotation.Value;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -37,6 +37,8 @@ public class EmergencyAccessServiceImpl
     private final PatientHealthProfileRepository patientHealthProfileRepository;
     private final EmergencyGuidanceService emergencyGuidanceService;
     private final EmergencyAccessLogRepository emergencyAccessLogRepository;
+    @Value("${app.base-url}")
+    private String baseUrl;
     @Override
     @Transactional
     public EmergencyQrResponse generateQrToken(String email) {
@@ -77,8 +79,7 @@ public class EmergencyAccessServiceImpl
         tokenRepository.save(accessToken);
 
         String accessUrl =
-                "http://localhost:8080/api/v1/emergency/access/"
-                        + token;
+                baseUrl + "/api/v1/emergency/access/" + token;
 
         return EmergencyQrResponse.builder()
                 .message("Emergency QR token generated successfully")
@@ -155,8 +156,7 @@ public class EmergencyAccessServiceImpl
                 )
                 .accessToken(accessToken.getToken())
                 .accessUrl(
-                        "http://localhost:8080/api/v1/emergency/access/"
-                                + accessToken.getToken()
+                        baseUrl + "/api/v1/emergency/access/" + token
                 )
                 .patientId(user.getId())
                 .patientName(user.getFullName())
