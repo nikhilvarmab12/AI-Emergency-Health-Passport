@@ -15,6 +15,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
+import com.ehp.backend.user.entity.Role;
 
 @Service
 public class AuthServiceImpl implements AuthService {
@@ -62,7 +63,7 @@ public class AuthServiceImpl implements AuthService {
                 .email(request.getEmail())
                 .password(passwordEncoder.encode(request.getPassword()))
                 .phoneNumber(request.getPhoneNumber())
-                .role(request.getRole())
+                .role(Role.PATIENT)
                 .enabled(false)
                 .build();
 

@@ -1,6 +1,5 @@
 package com.ehp.backend.auth.dto;
 
-import com.ehp.backend.user.entity.Role;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
@@ -33,5 +32,4 @@ public class RegisterRequest {
     )
     private String phoneNumber;
 
-    private Role role;
 }
