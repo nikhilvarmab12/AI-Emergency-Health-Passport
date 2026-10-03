@@ -1,0 +1,28 @@
+# Java / Maven
+**/target/
+**/.classpath
+**/.project
+**/.settings/
+**/bin/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# Frontend
+**/node_modules/
+**/dist/
+
+# Secrets and environment files
+.env
+.env.*
+!.env.example
+application-local.properties
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
