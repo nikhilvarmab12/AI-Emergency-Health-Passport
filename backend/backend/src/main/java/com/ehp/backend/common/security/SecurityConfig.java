@@ -70,7 +70,8 @@ public class SecurityConfig {
         configuration.setAllowedOrigins(
                 List.of(
                         "http://localhost:5173",
-                        "http://10.249.180.69:5173"
+                        "http://10.249.180.69:5173",
+                        "https://ai-emergency-health-passport.vercel.app"
                 )
         );
         configuration.setAllowedMethods(
