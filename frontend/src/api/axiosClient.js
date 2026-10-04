@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const axiosClient = axios.create({
-    baseURL: "http://10.249.180.69:8080",
+    baseURL: import.meta.env.VITE_API_BASE_URL || "http://localhost:8080",
     headers: {
         "Content-Type": "application/json",
     },
@@ -17,9 +17,7 @@ axiosClient.interceptors.request.use(
 
         return config;
     },
-    (error) => {
-        return Promise.reject(error);
-    }
+    (error) => Promise.reject(error)
 );
 
 export default axiosClient;

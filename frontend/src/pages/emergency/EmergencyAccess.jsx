@@ -14,57 +14,76 @@ const EmergencyAccess = () => {
     const [error, setError] = useState("");
     const [guidanceError, setGuidanceError] = useState("");
 
-    useEffect(() => {
+useEffect(() => {
+    let isMounted = true;
 
-        const fetchEmergencyData = async () => {
+    const fetchEmergencyData = async () => {
+        setLoading(true);
+        setGuidanceLoading(true);
+        setError("");
+        setGuidanceError("");
+        setPassport(null);
+        setGuidance(null);
 
-            try {
+        try {
+            const [passportResult, guidanceResult] =
+                await Promise.allSettled([
+                    emergencyService.getEmergencyAccess(token),
+                    emergencyService.getEmergencyGuidance(token),
+                ]);
 
-                setLoading(true);
-                setGuidanceLoading(true);
+            if (!isMounted) return;
 
-                const [passportResult, guidanceResult] =
-                    await Promise.allSettled([
-                        emergencyService.getEmergencyAccess(token),
-                        emergencyService.getEmergencyGuidance(token),
-                    ]);
+            if (passportResult.status === "fulfilled") {
+                setPassport(passportResult.value);
+            } else {
+                const message =
+                    passportResult.reason?.response?.data?.message ||
+                    "Unable to access Emergency Health Passport.";
 
-                if (passportResult.status === "fulfilled") {
-                    setPassport(passportResult.value);
-                } else {
+                setError(message);
+                toast.error(message);
+            }
 
-                    const message =
-                        passportResult.reason?.response?.data?.message ||
-                        "Unable to access Emergency Health Passport.";
+            if (guidanceResult.status === "fulfilled") {
+                setGuidance(guidanceResult.value);
+            } else {
+                const message =
+                    guidanceResult.reason?.response?.data?.message ||
+                    "AI emergency guidance is currently unavailable.";
 
-                    setError(message);
-                    toast.error(message);
-                }
-
-                if (guidanceResult.status === "fulfilled") {
-                    setGuidance(guidanceResult.value);
-                } else {
-
-                    const message =
-                        guidanceResult.reason?.response?.data?.message ||
-                        "AI emergency guidance is currently unavailable.";
-
-                    setGuidanceError(message);
-                }
-
-            } finally {
-
+                setGuidanceError(message);
+            }
+        } finally {
+            if (isMounted) {
                 setLoading(false);
                 setGuidanceLoading(false);
-
             }
-        };
-
-        if (token) {
-            fetchEmergencyData();
         }
+    };
 
-    }, [token]);
+    if (token) {
+        fetchEmergencyData();
+    }
+
+    return () => {
+        isMounted = false;
+    };
+}, [token]);
+if (!token) {
+    return (
+        <div className="min-h-screen flex items-center justify-center bg-gray-50">
+            <div className="text-center">
+                <h1 className="text-2xl font-bold mb-2">
+                    Emergency Passport Unavailable
+                </h1>
+                <p className="text-gray-600">
+                    Invalid or missing emergency access token.
+                </p>
+            </div>
+        </div>
+    );
+}
 
     if (loading) {
 
