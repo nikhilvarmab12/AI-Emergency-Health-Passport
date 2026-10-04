@@ -2,34 +2,35 @@ package com.ehp.backend.auth.service.impl;
 
 import com.ehp.backend.auth.service.EmailService;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.mail.SimpleMailMessage;
-import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestClient;
+
+import java.util.List;
+import java.util.Map;
 
 @Service
 @Slf4j
 public class EmailServiceImpl implements EmailService {
 
-    private final JavaMailSender mailSender;
+    private final RestClient restClient;
+    private final String apiKey;
+    private final String from;
 
-    public EmailServiceImpl(JavaMailSender mailSender) {
-        this.mailSender = mailSender;
+    public EmailServiceImpl(
+            @Value("${resend.api-key}") String apiKey,
+            @Value("${resend.from:onboarding@resend.dev}") String from) {
+
+        this.restClient = RestClient.create();
+        this.apiKey = apiKey;
+        this.from = from;
     }
 
     @Override
     public void sendOtpEmail(String to, String otp) {
 
-        log.info("Preparing OTP email for: {}", to);
-
-        SimpleMailMessage message = new SimpleMailMessage();
-
-        message.setTo(to);
-        message.setSubject(
-                "Emergency Health Passport - Email Verification"
-        );
-
-        message.setText(
-                """
+        String text = """
                 Dear User,
 
                 Welcome to AI-Powered Emergency Health Passport.
@@ -44,13 +45,25 @@ public class EmailServiceImpl implements EmailService {
 
                 Regards,
                 Emergency Health Passport Team
-                """.formatted(otp)
+                """.formatted(otp);
+
+        Map<String, Object> requestBody = Map.of(
+                "from", from,
+                "to", List.of(to),
+                "subject", "Emergency Health Passport - Email Verification",
+                "text", text
         );
 
-        log.info("Sending OTP email...");
+        log.info("Sending OTP email through Resend");
 
-        mailSender.send(message);
+        restClient.post()
+                .uri("https://api.resend.com/emails")
+                .header("Authorization", "Bearer " + apiKey)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(requestBody)
+                .retrieve()
+                .toBodilessEntity();
 
-        log.info("OTP email sent successfully to: {}", to);
+        log.info("OTP email accepted by Resend");
     }
 }
