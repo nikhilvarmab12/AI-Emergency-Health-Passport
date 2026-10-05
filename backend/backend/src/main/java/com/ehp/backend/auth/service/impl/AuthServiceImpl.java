@@ -8,6 +8,7 @@ import com.ehp.backend.auth.service.EmailVerificationService;
 import com.ehp.backend.common.exception.EmailAlreadyExistsException;
 import com.ehp.backend.common.exception.PhoneNumberAlreadyExistsException;
 import com.ehp.backend.common.security.JwtService;
+import com.ehp.backend.user.entity.Role;
 import com.ehp.backend.user.entity.User;
 import com.ehp.backend.user.repository.UserRepository;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -15,7 +16,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
-import com.ehp.backend.user.entity.Role;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class AuthServiceImpl implements AuthService {
@@ -41,39 +42,151 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
+    @Transactional
     public String register(RegisterRequest request) {
 
-        // Check duplicate email
-        if (userRepository.existsByEmail(request.getEmail())) {
+        String email = request.getEmail().trim().toLowerCase();
+        String phoneNumber = request.getPhoneNumber().trim();
+
+        /*
+         * ---------------------------------------------------------
+         * 1. Check whether email already belongs to a user
+         * ---------------------------------------------------------
+         */
+        User existingEmailUser = userRepository.findByEmail(email)
+                .orElse(null);
+
+        /*
+         * ---------------------------------------------------------
+         * 2. Check whether phone already belongs to a user
+         * ---------------------------------------------------------
+         */
+        User existingPhoneUser = userRepository
+                .findByPhoneNumber(phoneNumber)
+                .orElse(null);
+
+        /*
+         * ---------------------------------------------------------
+         * 3. Email and phone belong to different users
+         *
+         * Never merge two accounts.
+         * ---------------------------------------------------------
+         */
+        if (existingEmailUser != null
+                && existingPhoneUser != null
+                && !existingEmailUser.getId().equals(existingPhoneUser.getId())) {
+
             throw new EmailAlreadyExistsException(
-                    "Email already exists."
+                    "Email and phone number are already associated with different accounts."
             );
         }
 
-        // Check duplicate phone number
-        if (userRepository.existsByPhoneNumber(request.getPhoneNumber())) {
+        /*
+         * ---------------------------------------------------------
+         * 4. Existing VERIFIED email
+         * ---------------------------------------------------------
+         */
+        if (existingEmailUser != null
+                && Boolean.TRUE.equals(existingEmailUser.getEnabled())) {
+
+            throw new EmailAlreadyExistsException(
+                    "Email already exists. Please login."
+            );
+        }
+
+        /*
+         * ---------------------------------------------------------
+         * 5. Existing VERIFIED phone
+         * ---------------------------------------------------------
+         */
+        if (existingPhoneUser != null
+                && Boolean.TRUE.equals(existingPhoneUser.getEnabled())) {
+
             throw new PhoneNumberAlreadyExistsException(
                     "Phone number already exists."
             );
         }
 
-        // Create user
+        /*
+         * ---------------------------------------------------------
+         * 6. Recover existing PENDING registration
+         *
+         * If the email already belongs to an unverified user,
+         * reuse that user instead of creating another row.
+         * ---------------------------------------------------------
+         */
+        if (existingEmailUser != null) {
+
+            User user = existingEmailUser;
+
+            /*
+             * If the phone belongs to another account, reject it.
+             */
+            if (existingPhoneUser != null
+                    && !existingPhoneUser.getId().equals(user.getId())) {
+
+                throw new PhoneNumberAlreadyExistsException(
+                        "Phone number already exists."
+                );
+            }
+
+            /*
+             * Update the pending registration.
+             */
+            user.setFullName(request.getFullName());
+            user.setPassword(
+                    passwordEncoder.encode(request.getPassword())
+            );
+            user.setPhoneNumber(phoneNumber);
+            user.setRole(Role.PATIENT);
+            user.setEnabled(false);
+
+            userRepository.save(user);
+
+            /*
+             * Existing OTP will be deleted and a fresh OTP
+             * will be generated by EmailVerificationService.
+             */
+            emailVerificationService.generateAndSendOtp(email);
+
+            return "Registration is already pending. A new OTP has been sent to your email.";
+        }
+
+        /*
+         * ---------------------------------------------------------
+         * 7. Phone belongs to an existing PENDING account,
+         *    but the email is different.
+         *
+         * Do NOT change that account's email.
+         * ---------------------------------------------------------
+         */
+        if (existingPhoneUser != null) {
+
+            throw new PhoneNumberAlreadyExistsException(
+                    "Phone number is already associated with a pending registration. Please use the email used during registration."
+            );
+        }
+
+        /*
+         * ---------------------------------------------------------
+         * 8. Completely NEW registration
+         * ---------------------------------------------------------
+         */
         User user = User.builder()
                 .fullName(request.getFullName())
-                .email(request.getEmail())
+                .email(email)
                 .password(passwordEncoder.encode(request.getPassword()))
-                .phoneNumber(request.getPhoneNumber())
+                .phoneNumber(phoneNumber)
                 .role(Role.PATIENT)
                 .enabled(false)
                 .build();
 
-        // Save user
         userRepository.save(user);
 
-        // Generate and send OTP
-        emailVerificationService.generateAndSendOtp(
-                request.getEmail()
-        );
+        /*
+         * Generate and send OTP.
+         */
+        emailVerificationService.generateAndSendOtp(email);
 
         return "Registration successful. OTP has been sent to your email.";
     }

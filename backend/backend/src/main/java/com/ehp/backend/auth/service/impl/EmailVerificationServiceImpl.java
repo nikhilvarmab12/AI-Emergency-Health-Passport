@@ -37,6 +37,7 @@ public class EmailVerificationServiceImpl implements EmailVerificationService {
 
         // Delete existing OTP if present
         emailVerificationRepository.deleteByEmail(email);
+        emailVerificationRepository.flush();
 
         String otp = OtpGenerator.generateOtp();
 

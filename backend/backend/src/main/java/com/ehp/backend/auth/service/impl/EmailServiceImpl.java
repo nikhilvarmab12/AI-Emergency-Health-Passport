@@ -1,3 +1,4 @@
+
 package com.ehp.backend.auth.service.impl;
 
 import com.ehp.backend.auth.service.EmailService;
@@ -17,14 +18,18 @@ public class EmailServiceImpl implements EmailService {
     private final RestClient restClient;
     private final String apiKey;
     private final String from;
+    private final String senderName;
 
     public EmailServiceImpl(
-            @Value("${resend.api-key}") String apiKey,
-            @Value("${resend.from:onboarding@resend.dev}") String from) {
+            @Value("${brevo.api-key}") String apiKey,
+            @Value("${brevo.from}") String from,
+            @Value("${brevo.sender-name:AI Emergency Health Passport}")
+            String senderName) {
 
         this.restClient = RestClient.create();
         this.apiKey = apiKey;
         this.from = from;
+        this.senderName = senderName;
     }
 
     @Override
@@ -48,22 +53,25 @@ public class EmailServiceImpl implements EmailService {
                 """.formatted(otp);
 
         Map<String, Object> requestBody = Map.of(
-                "from", from,
-                "to", List.of(to),
+                "sender", Map.of(
+                        "name", senderName,
+                        "email", from
+                ),
+                "to", List.of(Map.of("email", to)),
                 "subject", "Emergency Health Passport - Email Verification",
-                "text", text
+                "textContent", text
         );
 
-        log.info("Sending OTP email through Resend");
+        log.info("Sending OTP email through Brevo");
 
         restClient.post()
-                .uri("https://api.resend.com/emails")
-                .header("Authorization", "Bearer " + apiKey)
+                .uri("https://api.brevo.com/v3/smtp/email")
+                .header("api-key", apiKey)
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(requestBody)
                 .retrieve()
                 .toBodilessEntity();
 
-        log.info("OTP email accepted by Resend");
+        log.info("OTP email accepted by Brevo");
     }
 }
